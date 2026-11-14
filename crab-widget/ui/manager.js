@@ -121,6 +121,7 @@ function agentCard(agent) {
   const [cls, label] = statusOf(agent);
   const live = sessions[agent.id] || {};
   const card = make('div', 'agent ' + cls);
+  card.dataset.id = agent.id;
 
   const head = make('div', 'agent-head');
   head.append(make('span', 'dot'), make('span', 'agent-title', agent.prompt.split('\n')[0]));
@@ -234,6 +235,16 @@ function renderHome(data, list) {
     row.append(make('div', 'agent-meta', meta.join(' · ')));
     row.title = 'Click to open';
     row.addEventListener('click', () => invoke('open_session', { session: s.session }));
+    if (chat) {
+      const close = make('button', 'close', '✕');
+      close.title = 'Remove this chat from the list';
+      close.addEventListener('click', (e) => {
+        e.stopPropagation();
+        row.remove();
+        invoke('dismiss_session', { session: s.session });
+      });
+      head.append(close);
+    }
     box.append(row);
   }
 }
@@ -247,19 +258,37 @@ async function loadSettings() {
     for (const [secs, label] of s.intervals) sel.append(new Option(label, secs));
   }
   sel.value = String(s.interval);
+  const style = $('sound-style');
+  if (!style.options.length) {
+    for (const [id, label] of s.styles) style.append(new Option(label, id));
+  }
+  style.value = s.style;
 }
 document.querySelectorAll('[data-key]').forEach((box) =>
   box.addEventListener('change', async () => { await invoke('set_setting', { id: box.dataset.key }); loadSettings(); }));
 $('interval').addEventListener('change', () => invoke('set_setting', { id: `every-${$('interval').value}` }));
+$('sound-style').addEventListener('change', () => invoke('set_setting', { id: `style-${$('sound-style').value}` }));
 document.querySelectorAll('[data-set]').forEach((btn) =>
   btn.addEventListener('click', () => invoke('set_setting', { id: btn.dataset.set })));
 
 /* ---------- navigation: the page follows the #hash, so Rust can open any page ---------- */
-function route() {
-  const page = ['home', 'swarm', 'settings'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'home';
+// #swarm/<agent id> (a click on an agent in the widget) expands that agent and scrolls to it.
+async function route() {
+  const [name, agentId] = location.hash.slice(1).split('/');
+  const page = ['home', 'swarm', 'settings'].includes(name) ? name : 'home';
   document.querySelectorAll('.page').forEach((p) => { p.hidden = p.id !== 'page-' + page; });
   document.querySelectorAll('nav a').forEach((a) => a.classList.toggle('active', a.dataset.page === page));
   if (page === 'settings') loadSettings();
+  if (page === 'swarm' && agentId) {
+    open.add(agentId);
+    await refresh();
+    const card = document.querySelector(`.agent[data-id="${CSS.escape(agentId)}"]`);
+    if (card) {
+      card.scrollIntoView({ block: 'center' });
+      card.classList.add('flash');
+      setTimeout(() => card.classList.remove('flash'), 1500);
+    }
+  }
 }
 window.addEventListener('hashchange', route);
 route();

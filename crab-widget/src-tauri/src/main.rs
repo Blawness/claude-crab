@@ -23,8 +23,8 @@ use tauri_plugin_autostart::{MacosLauncher, ManagerExt as _};
 use tauri_plugin_window_state::StateFlags;
 
 const SMALL: (f64, f64) = (150.0, 150.0);
-/// Width with the panel open; its height follows the panel's content.
-const PANEL_WIDTH: f64 = 310.0;
+/// Extra width when the hover panel is open beside the crab; the height stays the crab's.
+const PANEL_WIDTH: f64 = 370.0;
 const USAGE_PAGE: &str = "https://claude.ai/settings/usage";
 /// Choices for how often usage is checked, in seconds.
 const INTERVALS: [(u64, &str); 3] = [(120, "2 minutes"), (300, "5 minutes"), (900, "15 minutes")];
@@ -52,6 +52,7 @@ struct MenuHolder {
     nudge: CheckMenuItem<Wry>,
     chats: CheckMenuItem<Wry>,
     intervals: Vec<(u64, CheckMenuItem<Wry>)>,
+    styles: Vec<(&'static str, CheckMenuItem<Wry>)>,
 }
 
 /* ---------- settings kept between runs ---------- */
@@ -80,6 +81,7 @@ fn save_settings(state: &AppState) {
         "sound": state.sound.load(Ordering::Relaxed),
         "nudge": state.nudge.load(Ordering::Relaxed),
         "chats": usage::chats_enabled(),
+        "sound_style": sound::style(),
     });
     let _ = fs::write(path, out.to_string());
 }
@@ -101,9 +103,9 @@ fn start_drag(window: WebviewWindow) {
 }
 
 #[tauri::command]
-fn set_panel(window: WebviewWindow, open: bool, height: Option<f64>) {
-    let (w, h) = if open { (PANEL_WIDTH, height.unwrap_or(420.0).clamp(SMALL.1, 900.0)) } else { SMALL };
-    let _ = window.set_size(LogicalSize::new(w, h));
+fn set_panel(window: WebviewWindow, open: bool) {
+    let w = if open { SMALL.0 + PANEL_WIDTH } else { SMALL.0 };
+    let _ = window.set_size(LogicalSize::new(w, SMALL.1));
 }
 
 #[tauri::command]
@@ -133,35 +135,100 @@ fn open_login(app: AppHandle) {
 async fn open_session(app: AppHandle, session: String) -> String {
     // A background agent has no window of its own; its home is the manager.
     if agents::is_agent(&session) {
-        show_manager(&app, "swarm");
+        show_manager(&app, &format!("swarm/{}", focus::clean_session(&session)));
         return "manager".into();
     }
     focus::open_session(&session).to_string()
 }
 
-/// Opens the app window on `page` (home, swarm or settings), or brings it forward there.
-/// Built off the UI thread: creating a window from it can deadlock on Windows.
-fn show_manager(app: &AppHandle, page: &'static str) {
+/// Takes a chat off the board. Its record is the only thing removed, so it comes back on
+/// its own when that chat gets a new reply.
+#[tauri::command]
+fn dismiss_session(session: String) {
+    let clean = focus::clean_session(&session);
+    if clean.starts_with("chat-") {
+        let _ = std::fs::remove_file(hook::sessions_dir().join(format!("{clean}.json")));
+    }
+}
+
+/// Opens the app window on `page` (home, swarm, swarm/<agent id> or settings), or brings it
+/// forward there. Built off the UI thread: creating a window from it can deadlock on Windows.
+fn show_manager(app: &AppHandle, page: &str) {
+    let page = page.to_string();
     let app = app.clone();
     std::thread::spawn(move || {
         if let Some(w) = app.get_webview_window("manager") {
             let _ = w.eval(&format!("location.hash = '{page}'"));
-            let _ = w.unminimize();
-            let _ = w.show();
-            let _ = w.set_focus();
+            raise(&w);
             return;
         }
-        let _ = WebviewWindowBuilder::new(&app, "manager", WebviewUrl::App(format!("manager.html#{page}").into()))
+        let mut builder = WebviewWindowBuilder::new(&app, "manager", WebviewUrl::App(format!("manager.html#{page}").into()))
             .title("Claude Crab")
             .inner_size(760.0, 720.0)
-            .min_inner_size(560.0, 480.0)
-            .build();
+            .min_inner_size(560.0, 480.0);
+        if quiet() {
+            builder = builder.focused(false).position(-20000.0, -20000.0);
+        }
+        let _ = builder.build();
     });
 }
 
+/// CRAB_QUIET_WINDOWS, set by the e2e test: the app window opens far off-screen and never takes
+/// focus, so a test run does not get in the way of someone working on the same computer.
+/// Window states then behave the same (open, minimized), only nothing is activated.
+fn quiet() -> bool {
+    std::env::var_os("CRAB_QUIET_WINDOWS").is_some()
+}
+
+/// A crab click opens the app window, or minimizes it when it is already open; a minimized one
+/// comes back on the page it was on. Whether the window is open decides, not whether it has
+/// focus: Windows does not reliably hand focus to it after a click on the widget.
 #[tauri::command]
-fn open_manager(app: AppHandle) {
-    show_manager(&app, "swarm");
+fn toggle_manager(app: AppHandle) {
+    let Some(w) = app.get_webview_window("manager") else {
+        show_manager(&app, "home");
+        return;
+    };
+    let open = w.is_visible().unwrap_or(false) && !w.is_minimized().unwrap_or(true);
+    if open {
+        match (quiet(), w.hwnd()) {
+            (true, Ok(hwnd)) => focus::show_quietly(hwnd.0 as _, true),
+            _ => {
+                let _ = w.minimize();
+            }
+        }
+    } else {
+        raise(&w);
+    }
+}
+
+/// Shows a window of ours and makes it the active one. A plain set_focus after a click on the
+/// crab hits the same foreground lock as focusing a terminal does (see focus::bring_forward).
+fn raise(w: &WebviewWindow) {
+    if let (true, Ok(hwnd)) = (quiet(), w.hwnd()) {
+        focus::show_quietly(hwnd.0 as _, false);
+        return;
+    }
+    let _ = w.unminimize();
+    let _ = w.show();
+    match w.hwnd() {
+        Ok(hwnd) => {
+            focus::bring_forward(hwnd.0 as _);
+        }
+        Err(_) => {
+            let _ = w.set_focus();
+        }
+    }
+}
+
+#[tauri::command]
+fn open_manager(app: AppHandle, page: Option<String>) {
+    let page = match page.as_deref() {
+        Some("swarm") => "swarm",
+        Some("settings") => "settings",
+        _ => "home",
+    };
+    show_manager(&app, page);
 }
 
 /// Every setting the app window shows, in the same ids the tray menu uses.
@@ -178,6 +245,8 @@ fn get_settings(app: AppHandle, state: tauri::State<AppState>) -> Value {
         "chats": usage::chats_enabled(),
         "interval": usage::interval(),
         "intervals": INTERVALS.iter().map(|(secs, label)| json!([secs, label])).collect::<Vec<_>>(),
+        "style": sound::style(),
+        "styles": sound::STYLES.iter().map(|(id, label)| json!([id, label])).collect::<Vec<_>>(),
     })
 }
 
@@ -255,6 +324,13 @@ fn build_menu(app: &AppHandle, state: &AppState) -> tauri::Result<MenuHolder> {
     alerts.append(&sound)?;
     alerts.append(&nudge)?;
     alerts.append(&PredefinedMenuItem::separator(app)?)?;
+    let mut styles = Vec::new();
+    for (id, label) in sound::STYLES {
+        let entry = check(&format!("style-{id}"), label, id == sound::style())?;
+        alerts.append(&entry)?;
+        styles.push((id, entry));
+    }
+    alerts.append(&PredefinedMenuItem::separator(app)?)?;
     alerts.append(&test_needs)?;
     alerts.append(&test_done)?;
     let chats = check("chats", "Track Claude chats (keeps a hidden page open)", usage::chats_enabled())?;
@@ -279,7 +355,7 @@ fn build_menu(app: &AppHandle, state: &AppState) -> tauri::Result<MenuHolder> {
             &sep2, &quit,
         ],
     )?;
-    Ok(MenuHolder { menu, mini, remaining, smooth, click_through, autostart, sound, nudge, chats, intervals })
+    Ok(MenuHolder { menu, mini, remaining, smooth, click_through, autostart, sound, nudge, chats, intervals, styles })
 }
 
 fn on_menu(app: &AppHandle, id: &str) {
@@ -358,7 +434,18 @@ fn on_menu(app: &AppHandle, id: &str) {
         }
         "quit" => app.exit(0),
         other => {
-            if let Some(secs) = other.strip_prefix("every-").and_then(|s| s.parse::<u64>().ok()) {
+            if let Some(name) = other.strip_prefix("style-") {
+                if sound::set_style(name) {
+                    for (id, entry) in &holder.styles {
+                        let _ = entry.set_checked(*id == name);
+                    }
+                    save_settings(&state);
+                    // a preview of the style just picked; silent while Sounds is off
+                    if state.sound.load(Ordering::Relaxed) {
+                        sound::play(sound::Cue::Done);
+                    }
+                }
+            } else if let Some(secs) = other.strip_prefix("every-").and_then(|s| s.parse::<u64>().ok()) {
                 usage::set_interval(secs);
                 for (value, entry) in &holder.intervals {
                     let _ = entry.set_checked(*value == secs);
@@ -395,29 +482,36 @@ fn main() {
     agents::load();
     let saved = load_settings();
     usage::set_chats(saved["chats"].as_bool().unwrap_or(true));
+    if let Some(style) = saved["sound_style"].as_str() {
+        sound::set_style(style);
+    }
     if let Some(secs) = saved["interval"].as_u64() {
         if INTERVALS.iter().any(|(value, _)| *value == secs) {
             usage::set_interval(secs);
         }
     }
 
-    tauri::Builder::default()
-        // must be the first plugin: a second launch exits and opens the app window of the running crab
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            if let Some(w) = app.get_webview_window("main") {
-                let _ = w.show();
-            }
-            show_manager(app, "home");
-        }))
-        .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
-        .plugin(
+    // must be the first plugin: a second launch exits and opens the app window of the running crab
+    let mut builder = tauri::Builder::default().plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        if let Some(w) = app.get_webview_window("main") {
+            let _ = w.show();
+        }
+        show_manager(app, "home");
+    }));
+    // Remembered window positions live in the user's real app folder, which a test run must not
+    // overwrite (its app window sits off-screen), so quiet mode leaves this plugin out.
+    if !quiet() {
+        builder = builder.plugin(
             tauri_plugin_window_state::Builder::default()
                 .with_state_flags(StateFlags::POSITION)
                 .with_denylist(&[usage::WINDOW])
                 .build(),
-        )
+        );
+    }
+    builder
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
         .manage(AppState {
             last_usage: Mutex::new(json!({ "state": "waiting" })),
             last_pct: Mutex::new(None),
@@ -440,6 +534,8 @@ fn main() {
             open_manager,
             get_settings,
             set_setting,
+            dismiss_session,
+            toggle_manager,
             agent_spawn,
             board_tasks,
             agent_list,
@@ -451,6 +547,11 @@ fn main() {
         .on_menu_event(|app, event| on_menu(app, event.id().as_ref()))
         .setup(|app| {
             let handle = app.handle().clone();
+            if quiet() {
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.set_position(tauri::LogicalPosition::new(-20000.0, -20000.0));
+                }
+            }
             let holder = build_menu(&handle, &app.state::<AppState>())?;
             let mut tray = TrayIconBuilder::with_id("tray").tooltip("Crab Widget").menu(&holder.menu);
             if let Some(icon) = app.default_window_icon() {

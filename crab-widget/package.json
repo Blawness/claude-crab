@@ -5,7 +5,8 @@
   "scripts": {
     "tauri": "tauri",
     "dev": "tauri dev",
-    "build": "tauri build --no-bundle"
+    "build": "tauri build --no-bundle",
+    "e2e": "node scripts/e2e.mjs"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2"

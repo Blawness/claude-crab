@@ -66,38 +66,28 @@
     <div id="badge"></div>
   </div>
 
+  <!-- opens on hover, beside the crab: usage on the left, active agents on the right -->
   <div id="panel" hidden>
-    <div id="sessions"></div>
-    <button id="manager-btn">Swarm manager: start a task</button>
-    <hr>
-    <div class="row">
-      <span class="dot claude"></span><span class="label">5-hour session</span>
-      <span class="value" id="p-session">-</span>
-      <span class="sub" id="p-session-sub"></span>
+    <div class="col usage-col">
+      <div class="row">
+        <span class="dot claude"></span><span class="label">5-hour</span>
+        <span class="value" id="p-session">-</span>
+        <span class="sub" id="p-session-sub"></span>
+      </div>
+      <div class="row">
+        <span class="dot claude dim"></span><span class="label">Weekly</span>
+        <span class="value" id="p-week">-</span>
+        <span class="sub" id="p-week-sub"></span>
+      </div>
+      <div id="p-extra"></div>
+      <div class="sub eta" id="p-eta">-</div>
+      <button id="login-btn" hidden>Sign in to Claude</button>
+      <div id="p-status"></div>
     </div>
-    <div class="row">
-      <span class="dot claude dim"></span><span class="label">Weekly</span>
-      <span class="value" id="p-week">-</span>
-      <span class="sub" id="p-week-sub"></span>
+    <div class="col agents-col">
+      <div class="board-head"><span>Agents</span><span class="board-count" id="board-count"></span></div>
+      <div id="sessions"></div>
     </div>
-    <div id="p-extra"></div>
-    <div class="row">
-      <span class="dot none"></span><span class="label">Forecast</span>
-      <span class="value small" id="p-eta">-</span>
-    </div>
-    <hr>
-    <div class="row">
-      <span class="dot cpu"></span><span class="label">CPU</span>
-      <span class="value" id="p-cpu">-</span>
-    </div>
-    <div class="row">
-      <span class="dot ram"></span><span class="label">RAM</span>
-      <span class="value" id="p-ram">-</span>
-      <span class="sub" id="p-ram-sub"></span>
-    </div>
-    <button id="login-btn" hidden>Sign in to Claude</button>
-    <div id="p-status"></div>
-    <span class="link" id="usage-link">Open usage page on claude.ai</span>
   </div>
 
   <script src="app.js"></script>

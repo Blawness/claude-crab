@@ -47,6 +47,9 @@ h2 { font-size: 13px; margin: 0 0 8px; color: var(--muted); font-weight: 600; te
 .btns { display: flex; gap: 6px; flex-wrap: wrap; }
 .btns button { padding: 3px 10px; font-size: 12px; }
 .agent.clickable { cursor: pointer; }
+.agent.flash { background: rgba(232, 132, 92, 0.18); border-radius: 8px; transition: background 0.4s; }
+button.close { padding: 0 6px; border: 0; color: var(--muted); font-size: 12px; line-height: 18px; }
+button.close:hover { color: var(--alert); }
 .agent.clickable:hover .agent-title { color: var(--claude); }
 
 /* settings */

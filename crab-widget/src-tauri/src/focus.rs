@@ -7,10 +7,12 @@ use std::fs;
 use serde_json::Value;
 use sysinfo::{Pid, ProcessesToUpdate, System};
 use windows_sys::Win32::Foundation::{HWND, LPARAM};
+use windows_sys::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
 use windows_sys::Win32::UI::Shell::ShellExecuteW;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, GetWindow, GetWindowTextLengthW, GetWindowThreadProcessId, IsIconic, IsWindowVisible,
-    SetForegroundWindow, ShowWindow, GW_OWNER, SW_RESTORE, SW_SHOWNORMAL,
+    BringWindowToTop, EnumWindows, GetForegroundWindow, GetWindow, GetWindowTextLengthW, GetWindowThreadProcessId,
+    IsIconic, IsWindowVisible, SetForegroundWindow, ShowWindow, GW_OWNER, SW_RESTORE, SW_SHOWMINNOACTIVE,
+    SW_SHOWNOACTIVATE, SW_SHOWNORMAL,
 };
 
 use crate::hook::sessions_dir;
@@ -60,6 +62,35 @@ unsafe extern "system" fn collect(hwnd: HWND, out: LPARAM) -> i32 {
     1
 }
 
+/// Windows only lets the process that got the last input take the foreground, and a click on
+/// the widget lands in its WebView2 process, not here. So a bare SetForegroundWindow reports
+/// success and only flashes the taskbar. Sharing the foreground thread's input state lifts
+/// that lock. (No ALT-key trick: a lone ALT opens the menu bar of whatever app has focus.)
+/// Success is checked, not taken from the return value.
+pub fn bring_forward(hwnd: HWND) -> bool {
+    unsafe {
+        if IsIconic(hwnd) != 0 {
+            ShowWindow(hwnd, SW_RESTORE);
+        }
+        let fg_thread = GetWindowThreadProcessId(GetForegroundWindow(), std::ptr::null_mut());
+        let me = GetCurrentThreadId();
+        let attached = fg_thread != 0 && fg_thread != me && AttachThreadInput(me, fg_thread, 1) != 0;
+        BringWindowToTop(hwnd);
+        SetForegroundWindow(hwnd);
+        if attached {
+            AttachThreadInput(me, fg_thread, 0);
+        }
+        GetForegroundWindow() == hwnd
+    }
+}
+
+/// Minimizes or restores a window without activating it or anything else (quiet test mode).
+pub fn show_quietly(hwnd: HWND, minimized: bool) {
+    unsafe {
+        ShowWindow(hwnd, if minimized { SW_SHOWMINNOACTIVE } else { SW_SHOWNOACTIVATE });
+    }
+}
+
 /// Brings forward the window of `pid`, or of the nearest ancestor that has one
 /// (a shell has no window of its own; its terminal does).
 fn focus_owner(pid: u32) -> bool {
@@ -72,22 +103,21 @@ fn focus_owner(pid: u32) -> bool {
     for _ in 0..12 {
         let Some(at) = current else { break };
         if let Some((_, hwnd)) = windows.iter().find(|(owner, _)| *owner == at.as_u32()) {
-            let hwnd = *hwnd as HWND;
-            unsafe {
-                if IsIconic(hwnd) != 0 {
-                    ShowWindow(hwnd, SW_RESTORE);
-                }
-                return SetForegroundWindow(hwnd) != 0;
-            }
+            return bring_forward(*hwnd as HWND);
         }
         current = sys.process(at).and_then(|p| p.parent());
     }
     false
 }
 
+/// Session ids as they appear in file names: letters, digits and dashes only.
+pub fn clean_session(session: &str) -> String {
+    session.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '-').take(64).collect()
+}
+
 /// Opens the session with this id. Returns a short word saying what was done.
 pub fn open_session(session: &str) -> &'static str {
-    let clean: String = session.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '-').take(64).collect();
+    let clean = clean_session(session);
     let Some(record) = fs::read_to_string(sessions_dir().join(format!("{clean}.json")))
         .ok()
         .and_then(|s| serde_json::from_str::<Value>(&s).ok())
@@ -96,8 +126,9 @@ pub fn open_session(session: &str) -> &'static str {
     };
 
     if let Some(chat) = record["chat"].as_str() {
+        // https, not claude://: the desktop app ignores a claude:// link to a chat, so nothing opened.
         let ok = !chat.is_empty() && chat.chars().all(|c| c.is_ascii_alphanumeric() || c == '-');
-        return if ok && shell_open(&format!("claude://claude.ai/chat/{chat}")) { "link" } else { "missing" };
+        return if ok && shell_open(&format!("https://claude.ai/chat/{chat}")) { "link" } else { "missing" };
     }
     if let Some(host) = record["host"].as_str().filter(|h| is_host_id(h)) {
         let link = format!("claude://code/continue?session={host}&source=crab_widget");

@@ -132,7 +132,6 @@ function renderUsage() {
   if (stage.title !== title) stage.title = title;
 
   renderMood(sPct, fresh);
-  fitPanel();
 }
 
 function renderMood(sPct, fresh) {
@@ -187,12 +186,6 @@ function onSys({ cpu, memUsed, memTotal }) {
   view.hotTicks = cpu >= CPU_HOT ? view.hotTicks + 1 : 0;
   stage.classList.toggle('cpu-hot', view.hotTicks >= CPU_HOT_TICKS);
   stage.classList.toggle('ram-full', ram >= RAM_FULL);
-  if (!panel.hidden) {
-    const gb = (b) => (b / 1073741824).toFixed(1);
-    $('p-cpu').textContent = `${Math.round(cpu)}%`;
-    $('p-ram').textContent = `${Math.round(ram)}%`;
-    $('p-ram-sub').textContent = `${gb(memUsed)} of ${gb(memTotal)} GB`;
-  }
 }
 
 /* ---------- interaction ---------- */
@@ -213,39 +206,32 @@ window.addEventListener('mouseup', (e) => {
   press = null;
   if (!wasDrag && stage.contains(e.target)) {
     if (canAct()) play("hop");
-    togglePanel();
+    invoke('toggle_manager');
   }
 });
 window.addEventListener('blur', () => { press = null; });
 
-let panelHeight = 0;
-// Grows or shrinks the window so the open panel fits exactly.
-function fitPanel() {
-  if (panel.hidden) return;
-  const height = Math.ceil(panel.offsetTop + panel.offsetHeight + 8);
-  if (height === panelHeight) return;
-  panelHeight = height;
-  invoke('set_panel', { open: true, height });
+// Hovering the crab opens the panel beside it; leaving the widget closes it again.
+// Short delays so passing the mouse over does not flicker the window size.
+let hoverTimer = 0;
+function setPanel(open) {
+  clearTimeout(hoverTimer);
+  hoverTimer = setTimeout(() => {
+    if (open === !panel.hidden) return;
+    panel.hidden = !open;
+    if (open) { renderUsage(); renderBoard(); }
+    invoke('set_panel', { open });
+  }, open ? 250 : 400);
 }
-function togglePanel() {
-  if (panel.hidden) {
-    panel.hidden = false;
-    panelHeight = 0;
-    renderUsage();
-    renderBoard();
-  } else {
-    panel.hidden = true;
-    invoke('set_panel', { open: false });
-  }
-}
+stage.addEventListener('mouseenter', () => { if (!press) setPanel(true); });
+panel.addEventListener('mouseenter', () => setPanel(true));
+document.documentElement.addEventListener('mouseleave', () => setPanel(false));
 
 window.addEventListener('contextmenu', (e) => {
   e.preventDefault();
   invoke('show_menu');
 });
 $('login-btn').addEventListener('click', () => invoke('open_login'));
-$('usage-link').addEventListener('click', () => invoke('open_usage_page'));
-$('manager-btn').addEventListener('click', () => invoke('open_manager'));
 
 /* ---------- Claude Code task status (from hooks) ---------- */
 let task = { state: 'idle', count: 0, sessions: [] };
@@ -283,6 +269,18 @@ function sessionRow(s) {
   row.append(node('sess-dot'), node('sess-title', s.title || s.project || (chat ? 'Untitled chat' : 'Session')));
   row.title = (s.title ? s.title + '\n' : '') + (chat ? 'Click to open this chat' : 'Click to open this session');
   row.addEventListener('click', () => invoke('open_session', { session: s.session }));
+  if (chat) {
+    const close = document.createElement('button');
+    close.className = 'sess-close';
+    close.textContent = '✕';
+    close.title = 'Remove this chat from the list';
+    close.addEventListener('click', (e) => {
+      e.stopPropagation();
+      row.remove();
+      invoke('dismiss_session', { session: s.session });
+    });
+    row.append(close);
+  }
 
   const meta = [];
   if (!chat && s.project) meta.push(s.project);
@@ -305,28 +303,21 @@ function sessionRow(s) {
   if (s.state === 'done' && s.last) row.append(node('sess-last', s.last));
   return row;
 }
-// Claude Code sessions and regular chats are listed under their own headings.
+// Only what is live: sessions that need the user first, then the ones still working.
+// Finished ones live on the app window's Home page.
 function renderBoard() {
+  if (panel.hidden) return;
   const all = task.sessions || [];
-  const groups = [
-    { name: 'Claude Code', list: all.filter((s) => s.kind !== 'chat'), empty: 'No active sessions.' },
-    { name: 'Claude Chat', list: all.filter((s) => s.kind === 'chat'), empty: 'No recent chats.' },
-  ];
+  const waiting = all.filter((s) => s.state === 'waiting');
+  const working = all.filter((s) => s.state === 'working');
+  const parts = [];
+  if (waiting.length) parts.push(`${waiting.length} need you`);
+  if (working.length) parts.push(`${working.length} working`);
+  $('board-count').textContent = parts.join(' · ');
   const box = $('sessions');
   box.textContent = '';
-  for (const group of groups) {
-    const count = (state) => group.list.filter((s) => s.state === state).length;
-    const parts = [];
-    if (count('waiting')) parts.push(`${count('waiting')} need you`);
-    if (count('working')) parts.push(`${count('working')} working`);
-    const head = node('board-head');
-    head.append(node('', group.name), node('board-count', parts.join(' · ')));
-    const rows = node('board-rows');
-    if (group.list.length) group.list.forEach((s) => rows.append(sessionRow(s)));
-    else rows.append(node('empty', group.empty));
-    box.append(head, rows);
-  }
-  fitPanel();
+  [...waiting, ...working].forEach((s) => box.append(sessionRow(s)));
+  if (!box.childElementCount) box.append(node('empty', 'Nothing running. Click the crab for all sessions.'));
 }
 function onTask(next) {
   const before = task.state;
@@ -612,5 +603,5 @@ invoke('get_state').then((s) => {
   applyMode(s.mode);
   onUsage(s.usage);
   onTask(s.task);
-  if (s.openPanel) togglePanel(); // CRAB_OPEN_PANEL=1, for checking the panel
+  if (s.openPanel) setPanel(true); // CRAB_OPEN_PANEL=1, for checking the panel
 });
