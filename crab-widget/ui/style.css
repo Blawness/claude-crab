@@ -1,0 +1,156 @@
+:root {
+  --claude: #e8845c;
+  --cpu: #5aa9f0;
+  --ram: #63c98a;
+  --off: #8a8a92;
+  --shell: #d97757;
+  --ink: #1d1b1a;
+  --panel: rgba(24, 23, 26, 0.94);
+  --text: #f2efe9;
+  --muted: #a9a49b;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+  font: 12px/1.35 "Segoe UI", system-ui, sans-serif;
+  color: var(--text);
+}
+
+/* ---------- stage: rings + crab ---------- */
+#stage { position: relative; width: 150px; height: 150px; }
+#rings { position: absolute; inset: 0; transform: rotate(-90deg); }
+.backdrop { fill: rgba(20, 19, 22, 0.88); stroke: none; stroke-width: 3; }
+.track { fill: none; stroke: rgba(255, 255, 255, 0.1); stroke-width: 4; }
+.ring {
+  fill: none; stroke-width: 4; stroke-linecap: round;
+  stroke-dasharray: 0 1000;
+}
+#ring-claude { stroke: var(--claude); }
+#ring-cpu { stroke: var(--cpu); }
+#ring-ram { stroke: var(--ram); }
+#stage.no-usage #ring-claude { stroke: var(--off); }
+
+#badge {
+  position: absolute; left: 0; right: 0; bottom: 20px;
+  text-align: center; font-size: 10px; font-weight: 600;
+  color: var(--text); text-shadow: 0 1px 2px #000;
+}
+
+/* ---------- crab ----------
+   Every pose is set from app.js on a 10 fps ticker, pixel-art style. There are no CSS
+   animations or transitions here on purpose: those repaint at the display refresh rate.
+   The opt-in "Smooth animation" setting is the exception: it glides between those poses. */
+body.smooth :is(#mover, #bob, .arm-l, .arm-r, .leg, .eyes, .hand) { transition: transform 100ms linear; }
+#crab { position: absolute; left: 32.5px; top: 37px; overflow: visible; }
+#crab .skin { fill: var(--shell); }
+.eye { fill: var(--ink); }
+.sweat { fill: #7cc4ff; display: none; }
+#smoke rect { fill: #c9c6c2; display: none; }
+#zzz { fill: var(--text); font: bold 15px "Segoe UI", sans-serif; display: none; }
+#puff { transform-box: fill-box; transform-origin: center bottom; }
+
+#laptop, #bubble { display: none; }
+.lap-lid { fill: #c9ccd1; }
+.lap-base { fill: #8d939c; }
+.lap-logo { fill: var(--shell); }
+.bub { fill: #f2efe9; }
+.bub-dot { fill: #1d1b1a; }
+
+.mood-panic #crab .skin { fill: #e0483a; }
+.mood-sleep #crab .skin { fill: #8f6a5d; }
+.ram-full #puff { transform: scale(1.13, 1.1); }
+
+/* mini mode: rings only */
+.mini #crab, .mini #badge { display: none; }
+
+/* ---------- detail panel ---------- */
+#panel {
+  width: 302px; margin: 6px 4px 0;
+  padding: 10px 12px 9px;
+  background: var(--panel);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+}
+.row {
+  display: grid; grid-template-columns: 14px 1fr auto;
+  align-items: baseline; column-gap: 4px; padding: 3px 0;
+}
+.label { color: var(--muted); }
+.value { font-weight: 600; font-variant-numeric: tabular-nums; }
+.value.small { font-weight: 500; font-size: 11px; }
+.sub { grid-column: 2 / 4; font-size: 10.5px; color: var(--muted); }
+.sub:empty { display: none; }
+.dot { width: 8px; height: 8px; border-radius: 50%; align-self: center; }
+.dot.claude { background: var(--claude); }
+.dot.claude.dim { opacity: 0.55; }
+.dot.cpu { background: var(--cpu); }
+.dot.ram { background: var(--ram); }
+.dot.none { background: transparent; }
+hr { border: 0; border-top: 1px solid rgba(255, 255, 255, 0.09); margin: 6px 0; }
+
+#manager-btn {
+  width: 100%; margin-top: 8px; padding: 6px;
+  border: 1px solid rgba(128, 128, 128, 0.35); border-radius: 8px;
+  background: transparent; color: var(--text); font: inherit; cursor: pointer;
+}
+#manager-btn:hover { background: rgba(128, 128, 128, 0.16); }
+
+#login-btn {
+  width: 100%; margin-top: 8px; padding: 6px;
+  border: 0; border-radius: 8px;
+  background: var(--claude); color: #1d1b1a; font: inherit; font-weight: 600;
+  cursor: pointer;
+}
+#login-btn:hover { filter: brightness(1.08); }
+#p-status { margin-top: 6px; font-size: 10.5px; color: var(--muted); min-height: 14px; }
+
+/* ---------- follows the Windows light theme ---------- */
+@media (prefers-color-scheme: light) {
+  :root {
+    --panel: rgba(250, 249, 246, 0.97);
+    --text: #1d1b1a;
+    --muted: #6b665e;
+  }
+  .backdrop { fill: rgba(250, 249, 246, 0.92); }
+  .track { stroke: rgba(0, 0, 0, 0.1); }
+  #badge { text-shadow: 0 1px 2px #fff; }
+  #panel { border-color: rgba(0, 0, 0, 0.12); }
+  hr { border-top-color: rgba(0, 0, 0, 0.12); }
+}
+
+/* ---------- session board ---------- */
+:root { --alert: #ff7b6e; }
+@media (prefers-color-scheme: light) { :root { --alert: #c8321f; } }
+.board-head { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; margin-bottom: 2px; }
+.board-count { color: var(--muted); font-weight: 500; font-size: 10.5px; }
+.board-rows + .board-head { margin-top: 8px; padding-top: 7px; border-top: 1px solid rgba(128, 128, 128, 0.3); }
+.empty { color: var(--muted); font-size: 11px; padding: 2px 0 4px; }
+.sess {
+  display: grid; grid-template-columns: 12px 1fr; column-gap: 6px;
+  padding: 5px 0; border-top: 1px solid rgba(128, 128, 128, 0.2);
+}
+.sess:first-child { border-top: 0; }
+.sess { cursor: pointer; border-radius: 6px; }
+.sess:hover { background: rgba(128, 128, 128, 0.16); }
+.sess-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 4px; background: var(--muted); }
+.sess.working .sess-dot { background: var(--claude); }
+.sess.waiting .sess-dot { background: var(--alert); }
+.sess.waiting .sess-title { color: var(--alert); }
+.sess.done .sess-title { font-weight: 500; }
+.sess-title, .sess-meta, .sess-last { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.sess-title { font-weight: 600; }
+.sess-meta, .sess-last { grid-column: 2; font-size: 10.5px; color: var(--muted); }
+.sess-bar { grid-column: 2; height: 3px; border-radius: 2px; background: rgba(128, 128, 128, 0.25); margin: 3px 0 1px; }
+.sess-bar i { display: block; height: 100%; border-radius: 2px; background: var(--claude); }
+
+.link {
+  display: block; margin-top: 6px; font-size: 10.5px;
+  color: var(--claude); cursor: pointer; text-decoration: underline;
+}

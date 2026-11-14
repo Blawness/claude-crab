@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Claude Crab</title>
+  <link rel="stylesheet" href="manager.css">
+</head>
+<body>
+  <nav>
+    <div class="brand">🦀 Claude Crab</div>
+    <a href="#home" data-page="home">Home</a>
+    <a href="#swarm" data-page="swarm">Swarm</a>
+    <a href="#settings" data-page="settings">Settings</a>
+    <div id="usage" class="nav-foot">Usage: -</div>
+  </nav>
+
+  <main>
+    <!-- Home: usage and what every session is doing right now -->
+    <div class="page" id="page-home">
+      <h1>Home</h1>
+      <div class="stats">
+        <section class="stat">
+          <h2>5-hour session</h2>
+          <div class="big" id="h-session">-</div>
+          <div class="bar"><i id="h-session-bar"></i></div>
+          <div class="note" id="h-session-sub"></div>
+        </section>
+        <section class="stat">
+          <h2>Weekly</h2>
+          <div class="big" id="h-week">-</div>
+          <div class="bar"><i id="h-week-bar"></i></div>
+          <div class="note" id="h-week-sub"></div>
+        </section>
+      </div>
+      <section>
+        <div class="section-head">
+          <h2>Sessions <span id="h-count"></span></h2>
+          <div class="btns">
+            <button type="button" data-set="refresh">Refresh usage</button>
+            <button type="button" data-set="page">Usage page</button>
+            <button type="button" data-set="toggle">Show / hide crab</button>
+          </div>
+        </div>
+        <div id="h-sessions"></div>
+      </section>
+    </div>
+
+    <!-- Swarm: start and watch background agents -->
+    <div class="page" id="page-swarm">
+      <h1>Swarm</h1>
+      <section id="new-task">
+        <h2>New task</h2>
+        <label for="folder">Folder</label>
+        <div class="folder-row">
+          <input id="folder" list="recent-folders" placeholder="C:\path\to\project" spellcheck="false">
+          <datalist id="recent-folders"></datalist>
+          <button id="browse" type="button">Browse…</button>
+        </div>
+        <label for="prompt">What should the agent do?</label>
+        <textarea id="prompt" rows="4" placeholder="Describe the task. The first line becomes its title."></textarea>
+        <div class="run-row">
+          <label class="check"><input id="worktree" type="checkbox" checked> Work in its own git worktree</label>
+          <button id="run" type="button" class="primary">Start agent</button>
+        </div>
+        <p id="form-note" class="note">The agent may edit files in its folder. Shell commands it is not already allowed to run are refused.</p>
+        <p id="form-error" class="error" hidden></p>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <h2>Board tasks</h2>
+          <button id="board-refresh" type="button">Refresh</button>
+        </div>
+        <p id="board-note" class="note">Not loaded yet. A refresh runs a short Claude task and takes about a minute.</p>
+        <div id="board"></div>
+      </section>
+
+      <section>
+        <h2>Agents <span id="agent-count"></span></h2>
+        <div id="agents"></div>
+      </section>
+    </div>
+
+    <!-- Settings: the same switches as the tray menu -->
+    <div class="page" id="page-settings">
+      <h1>Settings</h1>
+      <section>
+        <h2>Crab</h2>
+        <label class="row"><span>Mini mode (rings only)</span><input type="checkbox" data-key="mini"></label>
+        <label class="row"><span>Smooth animation (60 fps, more CPU)</span><input type="checkbox" data-key="smooth"></label>
+        <label class="row"><span>Click-through (turn off from tray)</span><input type="checkbox" data-key="click"></label>
+        <label class="row"><span>Start with Windows</span><input type="checkbox" data-key="auto"></label>
+      </section>
+      <section>
+        <h2>Usage</h2>
+        <label class="row"><span>Show remaining instead of used</span><input type="checkbox" data-key="remaining"></label>
+        <label class="row"><span>Check usage every</span><select id="interval"></select></label>
+        <label class="row"><span>Track Claude chats (keeps a hidden page open)</span><input type="checkbox" data-key="chats"></label>
+        <div class="row"><span>Claude account</span><button type="button" data-set="login">Sign in…</button></div>
+      </section>
+      <section>
+        <h2>Alerts</h2>
+        <label class="row"><span>Sounds</span><input type="checkbox" data-key="sound"></label>
+        <label class="row"><span>Keep reminding until I answer</span><input type="checkbox" data-key="nudge"></label>
+        <div class="row"><span>Test sounds</span>
+          <span class="btns">
+            <button type="button" data-set="test-needs">"Needs you"</button>
+            <button type="button" data-set="test-done">"Finished"</button>
+          </span>
+        </div>
+      </section>
+      <section>
+        <div class="row"><span>Close the crab and this window</span><button type="button" class="danger" data-set="quit">Exit Claude Crab</button></div>
+      </section>
+    </div>
+  </main>
+
+  <script src="manager.js"></script>
+</body>
+</html>
