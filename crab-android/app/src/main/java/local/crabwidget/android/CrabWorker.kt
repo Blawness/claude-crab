@@ -19,6 +19,7 @@ class CrabWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         } finally {
             probe.destroy()
         }
+        runCatching { Updater.check(applicationContext, notify = true) }
         return Result.success()
     }
 

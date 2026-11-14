@@ -32,6 +32,15 @@ object Store {
         prefs(c).getFloat("last_pct", -1f).takeIf { it >= 0f }?.toDouble()
     fun saveLastPct(c: Context, pct: Double) = prefs(c).edit().putFloat("last_pct", pct.toFloat()).apply()
 
+    /* ---------- updates ---------- */
+
+    fun update(c: Context): JSONObject? = obj(c, "update")
+    fun saveUpdate(c: Context, json: JSONObject) = prefs(c).edit().putString("update", json.toString()).apply()
+    fun lastUpdateCheck(c: Context): Long = prefs(c).getLong("update_checked", 0L)
+    fun saveLastUpdateCheck(c: Context, t: Long) = prefs(c).edit().putLong("update_checked", t).apply()
+    fun notifiedUpdate(c: Context): Long = prefs(c).getLong("update_notified", 0L)
+    fun saveNotifiedUpdate(c: Context, code: Long) = prefs(c).edit().putLong("update_notified", code).apply()
+
     /* ---------- settings ---------- */
 
     fun flag(c: Context, key: String): Boolean = prefs(c).getBoolean(key, DEFAULTS[key] ?: false)

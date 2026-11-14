@@ -17,7 +17,7 @@ import org.json.JSONObject
 
 /** Turns probe answers into the stored state, the widget and the limit alerts. */
 object Usage {
-    private const val CHANNEL = "limits"
+    const val CHANNEL = "limits"
     private const val HISTORY_MS = 60 * 60 * 1000L
 
     fun now() = System.currentTimeMillis()

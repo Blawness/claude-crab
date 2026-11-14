@@ -32,6 +32,10 @@ class MainActivity : Activity() {
     private var checking = false
     private var lastUsageCheck = 0L
     private var lastChatCheck = 0L
+    /** idle, checking, downloading, installing or error. */
+    private var updatePhase = "idle"
+    private var updateProgress = -1
+    private var updateError = ""
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -74,8 +78,15 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        current = this
         ui.onResume()
+        // Back from the install screen without installing, or from the unknown-apps setting.
+        if (updatePhase == "installing") updatePhase = "idle"
         push()
+        scope.launch {
+            runCatching { Updater.check(this@MainActivity) }
+            push()
+        }
         loop = scope.launch {
             while (isActive) {
                 val now = Usage.now()
@@ -98,6 +109,7 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
+        if (current === this) current = null
         scope.cancel()
         ui.destroy()
         super.onDestroy()
@@ -141,6 +153,71 @@ class MainActivity : Activity() {
         .put("settings", Store.settings(this))
         .put("phone", Usage.phone(this))
         .put("checking", checking)
+        .put("update", updateState())
+
+    private fun updateState(): JSONObject {
+        val newer = Updater.pending(this)
+        return JSONObject()
+            .put("current", "${Updater.currentName(this)} (build ${Updater.currentCode(this)})")
+            .put("latest", newer?.let { JSONObject().put("code", it.code).put("name", it.name) } ?: JSONObject.NULL)
+            .put("phase", updatePhase)
+            .put("progress", updateProgress)
+            .put("error", updateError)
+            .put("checkedAt", Store.lastUpdateCheck(this))
+    }
+
+    private fun checkUpdateNow() {
+        if (updatePhase == "checking" || updatePhase == "downloading") return
+        updatePhase = "checking"
+        updateError = ""
+        push()
+        scope.launch {
+            val ok = runCatching { Updater.check(this@MainActivity, force = true) }.isSuccess
+            updatePhase = if (ok) "idle" else "error"
+            if (!ok) updateError = "Could not reach GitHub."
+            push()
+        }
+    }
+
+    private fun installUpdate() {
+        val release = Updater.pending(this) ?: return
+        if (updatePhase == "downloading" || updatePhase == "installing") return
+        if (!Updater.canInstall(this)) {
+            // One-time: Android asks the user to allow installs from this app.
+            updateError = "Allow \"Install unknown apps\" for Claude Crab, then tap Update again."
+            updatePhase = "error"
+            push()
+            runCatching {
+                startActivity(Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
+            }
+            return
+        }
+        updatePhase = "downloading"
+        updateProgress = 0
+        updateError = ""
+        push()
+        scope.launch {
+            try {
+                val apk = Updater.download(this@MainActivity, release) { pct ->
+                    updateProgress = pct
+                    push()
+                }
+                updatePhase = "installing"
+                push()
+                Updater.install(this@MainActivity, apk)
+            } catch (e: Exception) {
+                updatePhase = "error"
+                updateError = e.message ?: "Update failed."
+                push()
+            }
+        }
+    }
+
+    private fun onInstallFailed(why: String) {
+        updatePhase = "error"
+        updateError = "Install failed: $why"
+        push()
+    }
 
     private fun push(checking: Boolean = this.checking) {
         ui.evaluateJavascript("window.crabUpdate && crabUpdate(${state(checking)})", null)
@@ -195,6 +272,12 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface
+        fun checkUpdate() = runOnUiThread { checkUpdateNow() }
+
+        @JavascriptInterface
+        fun installUpdate() = runOnUiThread { this@MainActivity.installUpdate() }
+
+        @JavascriptInterface
         fun setInterval(secs: Int) = runOnUiThread {
             Store.setInterval(this@MainActivity, secs.toLong())
             push()
@@ -202,6 +285,13 @@ class MainActivity : Activity() {
     }
 
     companion object {
+        private var current: MainActivity? = null
+
+        /** From [InstallReceiver]: shows why Android refused the update. */
+        fun installFailed(why: String) {
+            current?.let { a -> a.runOnUiThread { a.onInstallFailed(why) } }
+        }
+
         private const val CHAT_MS = 30_000L
         private val FLAGS = setOf("remaining", "smooth", "chats", "background", "notify")
     }

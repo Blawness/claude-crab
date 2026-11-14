@@ -16,6 +16,15 @@
     </button>
   </header>
 
+  <section class="card update-card" id="update-card" hidden>
+    <div class="update-text">
+      <strong id="update-title">Update available</strong>
+      <span id="update-sub"></span>
+    </div>
+    <button class="primary small" id="update-btn">Update</button>
+    <div class="bar update-bar" id="update-bar" hidden><i id="update-fill"></i></div>
+  </section>
+
   <section id="hero">
     <div id="stage" class="mood-calm">
       <svg id="rings" viewBox="0 0 150 150" width="150" height="150" aria-hidden="true">
@@ -116,6 +125,11 @@
     <label class="toggle"><span>Smooth animation<small>Uses a bit more battery</small></span><input type="checkbox" data-flag="smooth"></label>
     <div class="label interval-label">Check while the app is open, every</div>
     <div class="segmented" id="intervals"></div>
+    <div class="row update-row">
+      <span><span class="label">Version</span><br><span id="version"></span></span>
+      <button class="link" id="update-check">Check for updates</button>
+    </div>
+    <div class="sub" id="update-status"></div>
     <button class="secondary" id="login-again">Sign in again</button>
   </section>
 

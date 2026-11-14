@@ -18,6 +18,13 @@ ditambah widget home screen dan notifikasi limit.
 
 Fitur desktop yang tidak ikut: sesi Claude Code, swarm/agent, CPU (Android tidak membolehkan app membaca beban CPU).
 
+## Update
+App ngecek release `android-latest` (file `version.json`) waktu dibuka dan saat cek background,
+paling sering tiap 6 jam; bisa juga manual lewat Settings > Check for updates. Kalau ada build baru,
+muncul notifikasi dan banner **Update**. Tap, APK di-download, dicek sha256-nya, lalu Android
+menampilkan layar install-nya. Pertama kali, Android minta izin "Install unknown apps" untuk Claude Crab.
+Build 1 belum punya fitur ini, jadi build berikutnya perlu di-install manual sekali.
+
 ## Cara kerja
 Sama seperti desktop: WebView tersembunyi di claude.ai dengan login milikmu sendiri menjalankan skrip
 yang memanggil `/api/organizations/{uuid}/usage`. Halaman claude.ai tidak diberi akses bridge ke app;

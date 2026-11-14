@@ -28,6 +28,7 @@
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
 html, body {
   margin: 0;
   background: var(--bg);
@@ -164,3 +165,14 @@ body.smooth :is(#mover, #bob, .arm-l, .arm-r, .leg, .eyes) { transition: transfo
 .segmented button.on { background: var(--claude); border-color: var(--claude); color: #1d1b1a; font-weight: 600; }
 
 .fine { color: var(--muted); font-size: 12px; text-align: center; margin: 18px 8px 0; }
+
+/* ---------- updates ---------- */
+.update-card { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; border-color: var(--claude); }
+.update-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.update-text span { font-size: 13px; color: var(--muted); }
+.primary.small { margin: 0; padding: 9px 16px; }
+.primary:disabled { opacity: 0.55; }
+.update-bar { flex-basis: 100%; margin: 0; }
+.update-row { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 12px; align-items: center; }
+.update-row .label { font-size: 13px; }
+#update-status:not(:empty) { margin-top: -2px; }

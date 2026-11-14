@@ -31,11 +31,17 @@ jobs:
           chmod +x gradlew
           ./gradlew --no-daemon assembleRelease
           cp app/build/outputs/apk/release/app-release.apk ClaudeCrab.apk
+          # What the app's updater reads: the build number and the APK's checksum.
+          printf '{"versionCode":%s,"versionName":"0.1.%s","sha256":"%s","commit":"%s"}\n' \
+            "$GITHUB_RUN_NUMBER" "$GITHUB_RUN_NUMBER" "$(sha256sum ClaudeCrab.apk | cut -d' ' -f1)" "$GITHUB_SHA" > version.json
+          cat version.json
 
       - uses: actions/upload-artifact@v4
         with:
           name: ClaudeCrab-apk
-          path: crab-android/ClaudeCrab.apk
+          path: |
+            crab-android/ClaudeCrab.apk
+            crab-android/version.json
 
       # A fixed "android-latest" release, so the phone always downloads from the same link.
       - name: Publish release
@@ -43,7 +49,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete android-latest --cleanup-tag --yes || true
-          gh release create android-latest ClaudeCrab.apk \
+          gh release create android-latest ClaudeCrab.apk version.json \
             --target "$GITHUB_SHA" \
             --title "Claude Crab for Android (build $GITHUB_RUN_NUMBER)" \
             --notes "Built from ${GITHUB_REF_NAME} at ${GITHUB_SHA::7}. Open this page on the phone, tap ClaudeCrab.apk, and allow installing from your browser." \

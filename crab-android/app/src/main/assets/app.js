@@ -12,7 +12,9 @@ const bridge = window.Crab || {
     settings: { remaining: false, smooth: false, chats: true, background: true, notify: true, interval: 300,
       intervals: [[120, '2 minutes'], [300, '5 minutes'], [900, '15 minutes']] },
     phone: { memUsed: 5.1e9, memTotal: 8e9, battery: 76, temp: 31.5, charging: false },
+    update: { current: '0.1.1 (build 1)', latest: { code: 2, name: '0.1.2' }, phase: 'idle', progress: -1, error: '', checkedAt: Date.now() },
   }),
+  checkUpdate() {}, installUpdate() {},
   refresh() {}, login() {}, openUsagePage() {}, openChat() {}, haptic() {}, setFlag() {}, setInterval() {},
 };
 
@@ -256,7 +258,41 @@ function renderSettings() {
   for (const b of box.children) b.classList.toggle('on', Number(b.dataset.secs) === s.settings.interval);
 }
 
+function renderUpdate() {
+  const u = s.update;
+  if (!u) return;
+  $('version').textContent = u.current;
+  const busy = u.phase === 'downloading' || u.phase === 'installing';
+  const card = $('update-card');
+  card.hidden = !u.latest && !(u.phase === 'error' && u.error);
+  if (u.latest) {
+    $('update-title').textContent = `Update available: build ${u.latest.code}`;
+    let sub = `You have ${u.current}`;
+    if (u.phase === 'downloading') sub = u.progress >= 0 ? `Downloading... ${u.progress}%` : 'Downloading...';
+    else if (u.phase === 'installing') sub = 'Opening the installer...';
+    else if (u.phase === 'error') sub = u.error;
+    $('update-sub').textContent = sub;
+  } else {
+    $('update-title').textContent = 'Update';
+    $('update-sub').textContent = u.error;
+  }
+  $('update-btn').hidden = !u.latest;
+  $('update-btn').disabled = busy;
+  $('update-btn').textContent = u.phase === 'error' ? 'Try again' : 'Update';
+  $('update-bar').hidden = u.phase !== 'downloading';
+  $('update-fill').style.width = `${Math.max(0, u.progress)}%`;
+
+  let status = '';
+  if (u.phase === 'checking') status = 'Checking...';
+  else if (u.latest) status = `Build ${u.latest.code} is available.`;
+  else if (u.phase === 'error') status = u.error;
+  else if (u.checkedAt) status = `Up to date. Checked ${clock(u.checkedAt)}.`;
+  $('update-status').textContent = status;
+  $('update-check').disabled = u.phase === 'checking' || busy;
+}
+
 function render() {
+  renderUpdate();
   renderSettings();
   renderUsage();
   renderChats();
@@ -283,6 +319,8 @@ window.crabPhone = (p) => { s.phone = p; renderPhone(p); };
 $('refresh').addEventListener('click', () => bridge.refresh());
 $('login-btn').addEventListener('click', () => bridge.login());
 $('login-again').addEventListener('click', () => bridge.login());
+$('update-btn').addEventListener('click', () => bridge.installUpdate());
+$('update-check').addEventListener('click', () => bridge.checkUpdate());
 $('usage-link').addEventListener('click', () => bridge.openUsagePage());
 for (const input of document.querySelectorAll('[data-flag]')) {
   input.addEventListener('change', () => bridge.setFlag(input.dataset.flag, input.checked));
