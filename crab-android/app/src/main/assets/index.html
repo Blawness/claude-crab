@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>Claude Crab</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <header class="top">
+    <h1>Claude Crab</h1>
+    <button id="refresh" class="icon-btn" aria-label="Check now">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M17.65 6.35A7.95 7.95 0 0 0 12 4a8 8 0 1 0 7.75 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+    </button>
+  </header>
+
+  <section id="hero">
+    <div id="stage" class="mood-calm">
+      <svg id="rings" viewBox="0 0 150 150" width="150" height="150" aria-hidden="true">
+        <circle class="backdrop" cx="75" cy="75" r="73"/>
+        <circle class="track" cx="75" cy="75" r="68"/>
+        <circle class="track" cx="75" cy="75" r="61"/>
+        <circle class="track" cx="75" cy="75" r="54"/>
+        <circle id="ring-session" class="ring" cx="75" cy="75" r="68"/>
+        <circle id="ring-week" class="ring" cx="75" cy="75" r="61"/>
+        <circle id="ring-ram" class="ring" cx="75" cy="75" r="54"/>
+      </svg>
+
+      <svg id="crab" viewBox="-8 -22 106 82" width="85" height="66" shape-rendering="crispEdges" aria-hidden="true">
+        <g id="smoke">
+          <rect x="24" y="-12" width="6" height="6"/>
+          <rect x="42" y="-18" width="6" height="6"/>
+          <rect x="60" y="-12" width="6" height="6"/>
+        </g>
+        <g id="mover">
+          <g class="legs">
+            <rect class="leg skin" x="16" y="36" width="6" height="16"/>
+            <rect class="leg skin" x="28" y="36" width="6" height="16"/>
+            <rect class="leg skin" x="56" y="36" width="6" height="16"/>
+            <rect class="leg skin" x="68" y="36" width="6" height="16"/>
+          </g>
+          <g id="bob">
+            <g id="puff">
+              <rect class="arm arm-l skin" x="0" y="14" width="12" height="12"/>
+              <rect class="arm arm-r skin" x="78" y="14" width="12" height="12"/>
+              <rect class="body skin" x="10" y="0" width="70" height="38"/>
+              <g class="eyes">
+                <rect class="eye" x="24" y="10" width="6" height="13"/>
+                <rect class="eye" x="60" y="10" width="6" height="13"/>
+              </g>
+            </g>
+            <rect class="sweat sweat-a" x="83" y="-2" width="4" height="6"/>
+            <rect class="sweat sweat-b" x="3" y="-2" width="4" height="6"/>
+          </g>
+        </g>
+        <g id="bubble">
+          <rect class="bub" x="46" y="-24" width="36" height="15"/>
+          <rect class="bub" x="52" y="-9" width="6" height="5"/>
+          <rect class="bub-dot" x="52" y="-19" width="5" height="5"/>
+          <rect class="bub-dot" x="61" y="-19" width="5" height="5"/>
+          <rect class="bub-dot" x="70" y="-19" width="5" height="5"/>
+        </g>
+        <text id="zzz" x="78" y="-4">z</text>
+      </svg>
+
+      <div id="badge"></div>
+    </div>
+    <p id="hero-line">Waiting for usage data...</p>
+    <button id="login-btn" class="primary" hidden>Sign in to Claude</button>
+    <div class="legend">
+      <span><i class="dot session"></i>5-hour</span>
+      <span><i class="dot week"></i>Weekly</span>
+      <span><i class="dot ram"></i>Phone RAM</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="metric">
+      <div class="metric-head"><span class="label">5-hour session</span><span class="value" id="p-session">-</span></div>
+      <div class="bar"><i id="bar-session"></i></div>
+      <div class="sub" id="p-session-sub"></div>
+    </div>
+    <div class="metric">
+      <div class="metric-head"><span class="label">Weekly</span><span class="value" id="p-week">-</span></div>
+      <div class="bar week"><i id="bar-week"></i></div>
+      <div class="sub" id="p-week-sub"></div>
+    </div>
+    <div id="p-extra"></div>
+    <div class="row"><span class="label">Forecast</span><span class="value small" id="p-eta">-</span></div>
+    <div class="foot">
+      <span id="p-status"></span>
+      <button class="link" id="usage-link">Usage page</button>
+    </div>
+  </section>
+
+  <section class="card" id="chats-card" hidden>
+    <h2>Recent chats <span class="count" id="chats-count"></span></h2>
+    <div id="chats"></div>
+  </section>
+
+  <section class="card">
+    <h2>This phone</h2>
+    <div class="row"><span class="label">RAM</span><span class="value" id="p-ram">-</span></div>
+    <div class="row"><span class="label">Battery</span><span class="value" id="p-battery">-</span></div>
+    <div class="row"><span class="label">Temperature</span><span class="value" id="p-temp">-</span></div>
+  </section>
+
+  <section class="card settings">
+    <h2>Settings</h2>
+    <label class="toggle"><span>Show remaining instead of used</span><input type="checkbox" data-flag="remaining"></label>
+    <label class="toggle"><span>Track recent Claude chats</span><input type="checkbox" data-flag="chats"></label>
+    <label class="toggle"><span>Check every 15 min in the background<small>Keeps the widget and alerts current</small></span><input type="checkbox" data-flag="background"></label>
+    <label class="toggle"><span>Alerts at 75%, 90% and on reset</span><input type="checkbox" data-flag="notify"></label>
+    <label class="toggle"><span>Smooth animation<small>Uses a bit more battery</small></span><input type="checkbox" data-flag="smooth"></label>
+    <div class="label interval-label">Check while the app is open, every</div>
+    <div class="segmented" id="intervals"></div>
+    <button class="secondary" id="login-again">Sign in again</button>
+  </section>
+
+  <p class="fine">Unofficial. Reads the same numbers as claude.ai's usage page, through your own sign-in in this app. Nothing leaves your phone except requests to claude.ai.</p>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

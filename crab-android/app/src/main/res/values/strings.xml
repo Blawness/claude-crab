@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Claude Crab</string>
+    <string name="widget_name">Claude Crab</string>
+    <string name="widget_description">The crab and your Claude limits on the home screen</string>
+    <string name="channel_limits">Claude limits</string>
+</resources>

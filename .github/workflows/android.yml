@@ -1,0 +1,50 @@
+name: Android APK
+
+on:
+  push:
+    paths:
+      - "crab-android/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: crab-android
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build APK
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk ClaudeCrab.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ClaudeCrab-apk
+          path: crab-android/ClaudeCrab.apk
+
+      # A fixed "android-latest" release, so the phone always downloads from the same link.
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete android-latest --cleanup-tag --yes || true
+          gh release create android-latest ClaudeCrab.apk \
+            --target "$GITHUB_SHA" \
+            --title "Claude Crab for Android (build $GITHUB_RUN_NUMBER)" \
+            --notes "Built from ${GITHUB_REF_NAME} at ${GITHUB_SHA::7}. Open this page on the phone, tap ClaudeCrab.apk, and allow installing from your browser." \
+            --prerelease
