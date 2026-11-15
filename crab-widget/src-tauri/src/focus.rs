@@ -126,9 +126,9 @@ pub fn open_session(session: &str) -> &'static str {
     };
 
     if let Some(chat) = record["chat"].as_str() {
-        // https, not claude://: the desktop app ignores a claude:// link to a chat, so nothing opened.
+        // claude://claude.ai/... is the desktop app's form of a claude.ai URL; https would open a browser.
         let ok = !chat.is_empty() && chat.chars().all(|c| c.is_ascii_alphanumeric() || c == '-');
-        return if ok && shell_open(&format!("https://claude.ai/chat/{chat}")) { "link" } else { "missing" };
+        return if ok && shell_open(&format!("claude://claude.ai/chat/{chat}")) { "link" } else { "missing" };
     }
     if let Some(host) = record["host"].as_str().filter(|h| is_host_id(h)) {
         let link = format!("claude://code/continue?session={host}&source=crab_widget");
