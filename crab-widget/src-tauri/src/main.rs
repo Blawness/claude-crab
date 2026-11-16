@@ -180,6 +180,18 @@ fn quiet() -> bool {
     std::env::var_os("CRAB_QUIET_WINDOWS").is_some()
 }
 
+/// The autostart plugin writes the exe path unquoted, so Windows fails to launch it at login
+/// when the path has a space ("Laptop MSI"); rewrite the Run value with quotes.
+fn quote_run_entry() {
+    use std::os::windows::process::CommandExt;
+    let Ok(exe) = std::env::current_exe() else { return };
+    let _ = std::process::Command::new("reg")
+        .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "/v", "Crab Widget", "/t", "REG_SZ", "/f", "/d"])
+        .arg(format!("\"{}\"", exe.display()))
+        .creation_flags(0x0800_0000) // CREATE_NO_WINDOW
+        .status();
+}
+
 /// A crab click opens the app window, or minimizes it when it is already open; a minimized one
 /// comes back on the page it was on. Whether the window is open decides, not whether it has
 /// focus: Windows does not reliably hand focus to it after a click on the widget.
@@ -429,7 +441,7 @@ fn on_menu(app: &AppHandle, id: &str) {
         "auto" => {
             let launcher = app.autolaunch();
             let on = !launcher.is_enabled().unwrap_or(false);
-            let _ = if on { launcher.enable() } else { launcher.disable() };
+            let _ = if on { launcher.enable().map(|_| quote_run_entry()) } else { launcher.disable() };
             let _ = holder.autostart.set_checked(launcher.is_enabled().unwrap_or(false));
         }
         "quit" => app.exit(0),
@@ -547,6 +559,10 @@ fn main() {
         .on_menu_event(|app, event| on_menu(app, event.id().as_ref()))
         .setup(|app| {
             let handle = app.handle().clone();
+            // Repairs entries written before the quoting fix; skipped for tests and dev builds so they never repoint it.
+            if !quiet() && !cfg!(debug_assertions) && app.autolaunch().is_enabled().unwrap_or(false) {
+                quote_run_entry();
+            }
             if quiet() {
                 if let Some(w) = app.get_webview_window("main") {
                     let _ = w.set_position(tauri::LogicalPosition::new(-20000.0, -20000.0));
